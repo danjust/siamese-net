@@ -2,8 +2,9 @@ import tensorflow as tf
 import numpy as np
 
 
-def convnet(inputs,reuse=False):
 
+
+def convnet(inputs,reuse=False):
     with tf.variable_scope('conv1',reuse=reuse):
         conv1_1 = tf.layers.conv2d(inputs = inputs,
                                    filters = 64,
@@ -70,6 +71,19 @@ def convnet(inputs,reuse=False):
         features = tf.layers.dense(inputs=flat, use_bias=False, units=2048, activation=tf.nn.sigmoid)
 
     return features
+
+
+def combined_model(img1, img2):
+    features1 = convnet(img1, reuse=False)
+    features2 = convnet(img2, reuse=True)
+    diff = tf.sqrt(tf.reduce_mean(tf.square(features1 - features2), axis=1))
+    diff = tf.reshape(diff,[-1,1])
+    return diff
+
+
+def contrastive_loss(diff, target, margin=1):
+    loss = tf.reduce_mean((1-target)*diff**2 / 2 + target*(tf.maximum(0.,margin-diff))**2/2)
+    return loss
 
 
 def getbatch(imgs, batchsize):
