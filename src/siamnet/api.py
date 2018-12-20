@@ -2,6 +2,60 @@ import tensorflow as tf
 import numpy as np
 
 
+class siamnet():
+    def __init__(self, img1, img2, target_diff):
+        self.img1 = img1
+        self.img2 = img2
+        self.target_diff = target_diff
+
+        self._results_diff = None
+        self._contrastive_loss = None
+        self._train_op = None
+
+
+    @property
+    def results_diff(self):
+        if self._results_diff is None:
+            features1 = convnet(self.img1, reuse=False)
+            features2 = convnet(self.img2, reuse=True)
+            self._results_diff = tf.sqrt(tf.reduce_mean(tf.square(features1 - features2),
+                                                axis=1))
+            self._results_diff = tf.reshape(self._results_diff,[-1,1])
+        return self._results_diff
+
+    @property
+    def contrastive_loss(self, margin=1):
+        if self._contrastive_loss is None:
+            self._contrastive_loss = (tf.reduce_mean((1-self.target_diff)*self.results_diff**2 / 2
+                                      + self.target_diff*(tf.maximum(0.,margin-self.results_diff))**2/2))
+        return self._contrastive_loss
+
+    @property
+    def train_op(self):
+        if self._train_op is None:
+            opt = tf.train.AdamOptimizer(
+                learning_rate = 0.0001)
+            self._train_op = opt.minimize(self.contrastive_loss)
+        return self._train_op
+
+
+    def train(self, imgs_train, trainsteps=5000, printstep=500, batchsize=16):
+        l = np.zeros(trainsteps)
+        _train_op = self.train_op               # build the model
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            for step in range(trainsteps):
+                batch, batch_diff = getbatch(imgs_train, batchsize)
+                _,l[step] = sess.run([_train_op,self.contrastive_loss],
+                                     feed_dict={self.img1: batch[0,:,:,:,:],
+                                                self.img2: batch[1,:,:,:,:],
+                                                self.target_diff: batch_diff})
+                if ((step+1)%printstep==0):
+                    print('Step %d: Loss %f'
+                        % (step,np.mean(l[step-printstep+1:step+1])))
+
+            saver.save(sess, './checkpoints/model', step)
 
 
 def convnet(inputs,reuse=False):
@@ -71,19 +125,6 @@ def convnet(inputs,reuse=False):
         features = tf.layers.dense(inputs=flat, use_bias=False, units=2048, activation=tf.nn.sigmoid)
 
     return features
-
-
-def combined_model(img1, img2):
-    features1 = convnet(img1, reuse=False)
-    features2 = convnet(img2, reuse=True)
-    diff = tf.sqrt(tf.reduce_mean(tf.square(features1 - features2), axis=1))
-    diff = tf.reshape(diff,[-1,1])
-    return diff
-
-
-def contrastive_loss(diff, target, margin=1):
-    loss = tf.reduce_mean((1-target)*diff**2 / 2 + target*(tf.maximum(0.,margin-diff))**2/2)
-    return loss
 
 
 def getbatch(imgs, batchsize):
