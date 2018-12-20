@@ -25,16 +25,18 @@ class siamnet():
         if self._results_diff is None:
             features1 = convnet(self.img1, reuse=False)
             features2 = convnet(self.img2, reuse=True)
-            self._results_diff = tf.sqrt(tf.reduce_mean(tf.square(features1 - features2),
-                                                axis=1))
+            self._results_diff = tf.sqrt(tf.reduce_mean(
+                tf.square(features1 - features2),
+                axis=1))
             self._results_diff = tf.reshape(self._results_diff,[-1,1])
         return self._results_diff
 
     @property
     def contrastive_loss(self, margin=1):
         if self._contrastive_loss is None:
-            self._contrastive_loss = (tf.reduce_mean((1-self.target_diff)*self.results_diff**2 / 2
-                                      + self.target_diff*(tf.maximum(0.,margin-self.results_diff))**2/2))
+            self._contrastive_loss = (
+                tf.reduce_mean((1-self.target_diff)*self.results_diff**2 / 2
+                + self.target_diff*(tf.maximum(0.,margin-self.results_diff))**2/2))
         return self._contrastive_loss
 
     @property
@@ -161,7 +163,10 @@ def convnet(inputs,reuse=False):
     flat = tf.layers.flatten(conv5)
 
     with tf.variable_scope('fc',reuse=reuse):
-        features = tf.layers.dense(inputs=flat, use_bias=False, units=2048, activation=tf.nn.sigmoid)
+        features = tf.layers.dense(inputs=flat,
+                                   use_bias=False,
+                                   units=2048,
+                                   activation=tf.nn.sigmoid)
 
     return features
 
@@ -175,7 +180,9 @@ def getbatch(imgs, batchsize):
         refiter = np.random.randint(num_per_char)
         if diffchar[i] == 0:
             compchar = refchar
-            compiter = np.random.choice(np.setdiff1d(np.arange(num_per_char),[refiter]))
+            compiter = np.random.choice(np.setdiff1d(
+                np.arange(num_per_char),
+                [refiter]))
         else:
             compchar = np.random.choice(np.setdiff1d(np.arange(964),[refchar]))
             compiter = np.random.randint(num_per_char)
