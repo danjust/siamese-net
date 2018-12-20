@@ -5,10 +5,12 @@ from siamnet import convnets
 
 
 class siamnet():
-    def __init__(self, img1, img2, target_diff, model_name,
+    def __init__(self, img1, img2, learning_rate,
+                 target_diff, model_name,
                  convnet=convnets.VGG16):
         self.img1 = img1
         self.img2 = img2
+        self.learning_rate = learning_rate
         self.target_diff = target_diff
         self.model_name = model_name
         self.convnet = convnet
@@ -46,7 +48,7 @@ class siamnet():
     def train_op(self):
         if self._train_op is None:
             opt = tf.train.AdamOptimizer(
-                learning_rate = 0.0001)
+                learning_rate = self.learning_rate)
             self._train_op = opt.minimize(self.contrastive_loss,
                                           global_step=self.global_step)
         return self._train_op
@@ -61,7 +63,12 @@ class siamnet():
         return self._summary_op
 
 
-    def train(self, imgs_train, trainsteps=5000, printstep=500, batchsize=16):
+    def train(self,
+              imgs_train,
+              trainsteps=5000,
+              printstep=500,
+              batchsize=16,
+              learning_rate=0.0001):
         _train_op = self.train_op               # build the model
 
         try:
@@ -91,7 +98,8 @@ class siamnet():
                     [_train_op,self.contrastive_loss,self.summary_op],
                          feed_dict={self.img1: batch[0,:,:,:,:],
                                     self.img2: batch[1,:,:,:,:],
-                                    self.target_diff: batch_diff})
+                                    self.target_diff: batch_diff,
+                                    self.learning_rate: learning_rate})
                 avg_loss = avg_loss+loss/printstep
                 if ((step+1)%printstep==0):
                     writer_train.add_summary(summary, global_step=step)
