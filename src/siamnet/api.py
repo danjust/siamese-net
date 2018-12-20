@@ -74,7 +74,7 @@ class siamnet():
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             ckpt = tf.train.get_checkpoint_state(os.path.dirname(
-                './checkpoints/checkpoint'))
+                './checkpoints/%s/checkpoint' % self.model_name))
             # if that checkpoint exists, restore from checkpoint
             if ckpt and ckpt.model_checkpoint_path:
                 saver.restore(sess, ckpt.model_checkpoint_path)
@@ -99,7 +99,7 @@ class siamnet():
                     avg_loss = 0
             writer_train.close()
 
-            saver.save(sess, './checkpoints/%s' % self.model_name, step)
+            saver.save(sess, './checkpoints/%s/training' % self.model_name, step)
 
 
 def getbatch(imgs, batchsize):
