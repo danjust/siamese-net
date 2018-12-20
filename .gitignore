@@ -116,3 +116,6 @@ dmypy.json
 
 *.pickle
 checkpoints
+graphs
+data_omniglot/images_background
+data_omniglot/images_evaluation
