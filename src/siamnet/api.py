@@ -1,16 +1,23 @@
 import tensorflow as tf
 import numpy as np
+import os
 
 
 class siamnet():
-    def __init__(self, img1, img2, target_diff):
+    def __init__(self, img1, img2, target_diff, model_name):
         self.img1 = img1
         self.img2 = img2
         self.target_diff = target_diff
+        self.model_name = model_name
 
         self._results_diff = None
         self._contrastive_loss = None
         self._train_op = None
+        self._summary_op = None
+
+        self.global_step = tf.get_variable('global_step',
+                                           initializer=tf.constant(0),
+                                           trainable=False)
 
 
     @property
@@ -35,25 +42,56 @@ class siamnet():
         if self._train_op is None:
             opt = tf.train.AdamOptimizer(
                 learning_rate = 0.0001)
-            self._train_op = opt.minimize(self.contrastive_loss)
+            self._train_op = opt.minimize(self.contrastive_loss,
+                                          global_step=self.global_step)
         return self._train_op
+
+    @property
+    def summary_op(self):
+        """Function to write the summary, returns property"""
+        if self._summary_op is None:
+            tf.summary.scalar("loss", self.contrastive_loss)
+            tf.summary.histogram("histogram_loss", self.contrastive_loss)
+            self._summary_op =  tf.summary.merge_all()
+        return self._summary_op
 
 
     def train(self, imgs_train, trainsteps=5000, printstep=500, batchsize=16):
-        l = np.zeros(trainsteps)
         _train_op = self.train_op               # build the model
+
+        try:
+            os.mkdir('./checkpoints/%s' %self.model_name)
+        except:
+            pass
+
         saver = tf.train.Saver()
+        l = np.zeros(trainsteps)
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            for step in range(trainsteps):
+            ckpt = tf.train.get_checkpoint_state(os.path.dirname(
+                './checkpoints/%s/checkpoint' %self.model_name))
+            # if that checkpoint exists, restore from checkpoint
+            if ckpt and ckpt.model_checkpoint_path:
+                saver.restore(sess, ckpt.model_checkpoint_path)
+
+            writer_train = tf.summary.FileWriter('./graphs/prediction/train/%s'
+                %self.model_name, sess.graph)
+            initial_step = self.global_step.eval()
+
+            avg_loss = 0
+            for step in range(initial_step, initial_step+trainsteps):
                 batch, batch_diff = getbatch(imgs_train, batchsize)
-                _,l[step] = sess.run([_train_op,self.contrastive_loss],
-                                     feed_dict={self.img1: batch[0,:,:,:,:],
-                                                self.img2: batch[1,:,:,:,:],
-                                                self.target_diff: batch_diff})
+                _,loss,summary = sess.run(
+                    [_train_op,self.contrastive_loss,self.summary_op],
+                         feed_dict={self.img1: batch[0,:,:,:,:],
+                                    self.img2: batch[1,:,:,:,:],
+                                    self.target_diff: batch_diff})
+                avg_loss = avg_loss+loss/printstep
                 if ((step+1)%printstep==0):
-                    print('Step %d: Loss %f'
-                        % (step,np.mean(l[step-printstep+1:step+1])))
+                    writer_train.add_summary(summary, global_step=step)
+                    print('Step {}: Train loss {:.3f}'.format(step, avg_loss))
+                    avg_loss = 0
+            writer_train.close()
 
             saver.save(sess, './checkpoints/model', step)
 
