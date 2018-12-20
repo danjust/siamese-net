@@ -73,6 +73,7 @@ class siamnet():
             # if that checkpoint exists, restore from checkpoint
             if ckpt and ckpt.model_checkpoint_path:
                 saver.restore(sess, ckpt.model_checkpoint_path)
+                print("Model restored, step = %d" % self.global_step.eval())
 
             writer_train = tf.summary.FileWriter('./graphs/prediction/train/%s'
                 %self.model_name, sess.graph)
@@ -93,7 +94,7 @@ class siamnet():
                     avg_loss = 0
             writer_train.close()
 
-            saver.save(sess, './checkpoints/model', step)
+            saver.save(sess, './checkpoints/%s/checkpoint' % self.model_name, step)
 
 
 def convnet(inputs,reuse=False):
